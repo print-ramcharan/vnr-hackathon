@@ -131,7 +131,7 @@ export function DoctorReviewsTab() {
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
-            <Users className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+            <Users className="w-8 h-8 mx-auto mb-2 text-green-500" />
             <p className="text-3xl font-bold">{new Set(reviews.map(r => r.patientId)).size}</p>
             <p className="text-sm text-muted-foreground">Unique Patients</p>
           </CardContent>
