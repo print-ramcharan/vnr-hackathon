@@ -50,11 +50,26 @@ export const useAppointments = () => {
       return;
     }
 
+    // Poll more frequently during development so status updates (like COMPLETED)
+    // propagate to other users faster. Also listen for window focus/visibility
+    // so we immediately refetch when the user returns to the tab.
     const interval = setInterval(() => {
       fetchAppointments();
-    }, 60000); // 1 minute
+    }, 30000); // 30 seconds
 
-    return () => clearInterval(interval);
+    const onFocus = () => fetchAppointments();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') fetchAppointments();
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [user, patientProfile, doctorProfile]);
 
   // Helper function to check if appointment is upcoming

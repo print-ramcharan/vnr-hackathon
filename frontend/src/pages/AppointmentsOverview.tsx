@@ -9,8 +9,10 @@ import { format, differenceInHours } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { appointmentsAPI } from "@/services/profileApi";
+import { prescriptionAPI } from '@/services/prescriptionApi';
 import { useProfile } from "@/hooks/useProfile";
 import { Appointment } from "@/types/user";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
 import { RescheduleAppointmentModal } from "@/components/RescheduleAppointmentModal";
 import { CancelAppointmentModal } from "@/components/CancelAppointmentModal";
@@ -27,6 +29,10 @@ export default function AppointmentsOverview() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [prescriptionModalOpen, setPrescriptionModalOpen] = useState(false);
+  const [modalPrescriptions, setModalPrescriptions] = useState<any[]>([]);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalAppointment, setModalAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     fetchAppointments();
@@ -67,6 +73,7 @@ export default function AppointmentsOverview() {
       PENDING: { variant: "secondary" as const, icon: Clock, text: "Pending" },
       APPROVED: { variant: "default" as const, icon: Check, text: "Approved" },
       REJECTED: { variant: "destructive" as const, icon: X, text: "Rejected" },
+      COMPLETED: { variant: "outline" as const, icon: Check, text: "Completed" },
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
@@ -160,6 +167,22 @@ export default function AppointmentsOverview() {
   const paginate = (pageNumber: number) => {
     setCurrentPage(pageNumber);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const openPrescriptionsFor = async (appointment: Appointment) => {
+    setModalAppointment(appointment);
+    setPrescriptionModalOpen(true);
+    setModalLoading(true);
+    try {
+      const list = await prescriptionAPI.getByAppointment(String(appointment.id));
+      setModalPrescriptions(list || []);
+    } catch (err) {
+      console.error('Failed to load prescriptions for appointment', err);
+      toast({ title: 'Error', description: 'Failed to load prescriptions', variant: 'destructive' });
+      setModalPrescriptions([]);
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   const getPageTitle = () => {
@@ -338,10 +361,12 @@ export default function AppointmentsOverview() {
                                  !canCancel(appointment) && (
                                   <div className="text-xs text-muted-foreground pt-1">
                                     {appointment.status === 'APPROVED' 
-                                      ? "Approved appointments cannot be cancelled"
-                                      : appointment.status === 'REJECTED'
-                                      ? "Appointment rejected"
-                                      : "No actions available"
+                                          ? "Approved appointments cannot be cancelled"
+                                          : appointment.status === 'REJECTED'
+                                          ? "Appointment rejected"
+                                          : appointment.status === 'COMPLETED'
+                                          ? "Appointment completed"
+                                          : "No actions available"
                                     }
                                   </div>
                                 )}
@@ -446,11 +471,21 @@ export default function AppointmentsOverview() {
                                       ? "Cannot be cancelled"
                                       : appointment.status === 'REJECTED'
                                       ? "Rejected"
+                                      : appointment.status === 'COMPLETED'
+                                      ? "Completed"
                                       : "No actions"
                                     }
                                   </span>
                                 )}
                               </div>
+
+                              {appointment.status === 'COMPLETED' && (
+                                <div className="mt-2">
+                                  <Button size="sm" variant="ghost" onClick={() => openPrescriptionsFor(appointment)}>
+                                    View Prescriptions
+                                  </Button>
+                                </div>
+                              )}
                             </TableCell>
                           )}
                         </TableRow>
@@ -542,6 +577,52 @@ export default function AppointmentsOverview() {
         }}
         onCancelSuccess={handleCancelSuccess}
       />
+
+      {/* Prescription Modal */}
+      <Dialog open={prescriptionModalOpen} onOpenChange={(open) => { if (!open) { setPrescriptionModalOpen(false); setModalPrescriptions([]); setModalAppointment(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Prescriptions</DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2">
+            {modalLoading ? (
+              <div className="text-center py-4">Loading prescriptions...</div>
+            ) : modalPrescriptions.length === 0 ? (
+              <div className="text-center text-muted-foreground py-6">No prescriptions found for this appointment.</div>
+            ) : (
+              <div className="space-y-4">
+                {modalPrescriptions.map((p: any) => (
+                  <div key={p.id} className="border rounded p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">Dr. {p.doctorName || (modalAppointment?.doctorName ?? 'Unknown')}</div>
+                        <div className="text-sm text-muted-foreground">{new Date(p.createdAt).toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 space-y-2">
+                      {p.items?.map((it: any, idx: number) => (
+                        <div key={idx} className="flex justify-between">
+                          <div>
+                            <div className="font-semibold">{it.medicationName || it.name}</div>
+                            <div className="text-sm text-muted-foreground">{it.dose} • {it.frequency} • {it.duration}</div>
+                            {it.instructions && <div className="text-sm mt-1">{it.instructions}</div>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setPrescriptionModalOpen(false); setModalPrescriptions([]); setModalAppointment(null); }}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

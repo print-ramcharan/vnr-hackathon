@@ -188,6 +188,12 @@ export const appointmentsAPI = {
     return response.data;
   },
 
+  // Mark appointment as completed
+  completeAppointment: async (id: string): Promise<Appointment> => {
+    const response = await api.patch(`/appointments/${id}/status`, { status: 'COMPLETED' });
+    return response.data;
+  },
+
   getApprovedDoctors: async (): Promise<DoctorProfile[]> => {
     const response = await api.get('/profiles/doctor/approved');
     return response.data;

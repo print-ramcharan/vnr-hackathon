@@ -12,6 +12,7 @@ import { appointmentsAPI } from "@/services/profileApi";
 import { useProfile } from "@/hooks/useProfile";
 import { Appointment } from "@/types/user";
 import { ProfileCompletionBanner } from "@/components/ProfileCompletionBanner";
+import CreatePrescriptionModal from '@/components/CreatePrescriptionModal';
 
 export const DoctorBookingApproval = () => {
   const { user } = useAuth();
@@ -20,7 +21,9 @@ export const DoctorBookingApproval = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'requests' | 'all'>('requests');
+   const [activeTab, setActiveTab] = useState<'requests' | 'all'>('requests');
+   const [prescriptionModalOpen, setPrescriptionModalOpen] = useState(false);
+   const [prescriptionAppointment, setPrescriptionAppointment] = useState<Appointment | null>(null);
 
   useEffect(() => {
     if (doctorProfile) {
@@ -70,6 +73,34 @@ export const DoctorBookingApproval = () => {
         title: "Error",
         description: "Failed to update appointment status.",
         variant: "destructive",
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const handleCompleteAppointment = async (appointmentId: string) => {
+    if (showProfileWarning && showProfileWarning()) {
+      return;
+    }
+
+    setUpdatingStatus(appointmentId);
+    try {
+      await appointmentsAPI.completeAppointment(appointmentId);
+
+      toast({
+        title: 'Appointment completed',
+        description: 'The appointment has been marked as completed.',
+      });
+
+      // Refresh appointments
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error completing appointment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark appointment as completed.',
+        variant: 'destructive',
       });
     } finally {
       setUpdatingStatus(null);
@@ -361,6 +392,29 @@ export const DoctorBookingApproval = () => {
                                   {appointment.notes}
                                 </p>
                               )}
+
+                              {/* Actions for mobile: Complete + Add Prescription */}
+                              {appointment.status === 'APPROVED' && (
+                                <div className="mt-4 space-y-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleCompleteAppointment(appointment.id)}
+                                    disabled={updatingStatus === appointment.id}
+                                    className="w-full"
+                                  >
+                                    <Check className="w-4 h-4 mr-1" />
+                                    Complete
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => { setPrescriptionAppointment(appointment); setPrescriptionModalOpen(true); }}
+                                    className="w-full"
+                                  >
+                                    Add Prescription
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -404,6 +458,28 @@ export const DoctorBookingApproval = () => {
                             <TableCell>
                               {getStatusBadge(appointment.status)}
                             </TableCell>
+                            {/* Actions cell for completed action and prescriptions */}
+                            <TableCell>
+                              {appointment.status === 'APPROVED' && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleCompleteAppointment(appointment.id)}
+                                    disabled={updatingStatus === appointment.id}
+                                  >
+                                    <Check className="w-4 h-4 mr-1" />
+                                    Complete
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => { setPrescriptionAppointment(appointment); setPrescriptionModalOpen(true); }}
+                                  >
+                                    Add Prescription
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -415,6 +491,17 @@ export const DoctorBookingApproval = () => {
           </Card>
         )}
       </div>
+      {prescriptionAppointment && (
+        <CreatePrescriptionModal
+          appointment={prescriptionAppointment}
+          isOpen={prescriptionModalOpen}
+          onOpenChange={(open) => {
+            setPrescriptionModalOpen(open);
+            if (!open) setPrescriptionAppointment(null);
+          }}
+          onSuccess={() => fetchAppointments()}
+        />
+      )}
     </div>
   );
 };

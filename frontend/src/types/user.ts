@@ -31,7 +31,7 @@ export interface DoctorProfile {
   governmentIdUrl?: string;
   affiliationProofUrl?: string;
   isProfileComplete: boolean;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 }
 
 export interface PatientProfile {
@@ -50,7 +50,7 @@ export interface PatientProfile {
   governmentIdNumber: string;
   governmentIdUrl?: string;
   isProfileComplete?: boolean;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 }
 
 export interface TimeSlot {
@@ -71,7 +71,7 @@ export interface Appointment {
   date: string;
   timeFrom: string;
   timeTo: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   doctorName: string;
   patientName: string;
   specialization: string;

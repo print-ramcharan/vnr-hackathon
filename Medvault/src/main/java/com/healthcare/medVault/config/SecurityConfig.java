@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/doctors/**").permitAll()
                         .requestMatchers("/api/analytics/**").permitAll()
                         .requestMatchers("/api/appointments/**").permitAll()
+                        .requestMatchers("/api/prescriptions/**").permitAll()
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/profiles/patient/**").permitAll()
                         .requestMatchers("/api/profiles/upload").permitAll()

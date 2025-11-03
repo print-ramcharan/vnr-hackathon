@@ -15,6 +15,7 @@ import { PatientHealthRecord } from '@/components/PatientHealthRecord';
 import { PatientEmergencyRequests } from '@/components/PatientEmergencyRequests';
 import { DocumentPermissionRequests } from '@/components/DocumentPermissionRequests';
 import MedVaultChatbot from '@/components/MedVaultChatbot';
+import PatientPrescriptions from '@/components/PatientPrescriptions';
 import { 
   Calendar, FileText, Pill, Activity, 
   Heart, User, CalendarPlus, CheckCircle,
@@ -23,6 +24,8 @@ import {
   AlertTriangle, Shield
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { prescriptionAPI } from '@/services/prescriptionApi';
+import { useToast } from '@/hooks/use-toast';
 
 
 const PatientDashboard = () => {
@@ -40,6 +43,8 @@ const PatientDashboard = () => {
     bmiCategory, 
     loading: healthLoading 
   } = useHealthRecord();
+  const { toast } = useToast();
+  const [appointmentPrescriptions, setAppointmentPrescriptions] = useState<any[]>([]);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   
@@ -49,6 +54,28 @@ const PatientDashboard = () => {
       navigate('/login');
     }
   }, [user, navigate]);
+
+  // When the next appointment changes (or its status changes), fetch prescriptions for it
+  useEffect(() => {
+    const fetchForAppointment = async () => {
+      if (!nextAppointment || !nextAppointment.id) {
+        setAppointmentPrescriptions([]);
+        return;
+      }
+
+      try {
+        const list = await prescriptionAPI.getByAppointment(String(nextAppointment.id));
+        console.debug('Fetched prescriptions for appointment', nextAppointment.id, list?.length);
+        setAppointmentPrescriptions(list || []);
+      } catch (err) {
+        console.error('Failed to load prescriptions for appointment', err);
+        toast({ title: 'Error', description: 'Failed to load prescriptions for appointment', variant: 'destructive' });
+      }
+    };
+
+    fetchForAppointment();
+  // refetch when appointment id or status changes
+  }, [nextAppointment?.id, nextAppointment?.status]);
 
   
   const sidebarItems = [
@@ -138,14 +165,15 @@ const PatientDashboard = () => {
   };
 
   const getStatusBadge = (status: string) => {
+    // Normalize status coming from backend (PENDING, APPROVED, REJECTED, COMPLETED)
     switch (status) {
-      case 'confirmed':
+      case 'APPROVED':
         return <Badge className="bg-green-100 text-green-800 border-green-200">Confirmed</Badge>;
-      case 'pending':
+      case 'PENDING':
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Pending</Badge>;
-      case 'completed':
+      case 'COMPLETED':
         return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Completed</Badge>;
-      case 'cancelled':
+      case 'REJECTED':
         return <Badge className="bg-red-100 text-red-800 border-red-200">Cancelled</Badge>;
       default:
         return <Badge>{status}</Badge>;
@@ -154,13 +182,13 @@ const PatientDashboard = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'confirmed':
+      case 'APPROVED':
         return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case 'pending':
+      case 'PENDING':
         return <Clock className="w-5 h-5 text-yellow-500" />;
-      case 'completed':
+      case 'COMPLETED':
         return <CheckCircle className="w-5 h-5 text-blue-500" />;
-      case 'cancelled':
+      case 'REJECTED':
         return <XCircle className="w-5 h-5 text-red-500" />;
       default:
         return <Clock className="w-5 h-5 text-gray-500" />;
@@ -396,6 +424,55 @@ const PatientDashboard = () => {
                                   <Clock className="w-3 h-3 mr-1" />
                                   Pending
                                 </Badge>
+                              )}
+                              {nextAppointment.status === 'COMPLETED' && (
+                                <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Completed
+                                </Badge>
+                              )}
+                              {/* If appointment has prescriptions, show a small preview list */}
+                              {appointmentPrescriptions.length > 0 && (
+                                <div className="mt-3 p-3 bg-muted/5 rounded">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <div className="text-sm font-medium mb-2">Prescription{appointmentPrescriptions.length > 1 ? 's' : ''}</div>
+                                      <ul className="text-sm list-disc list-inside">
+                                        {appointmentPrescriptions.map((p: any) => (
+                                          <li key={p.id} className="mb-1">
+                                            {p.items && p.items.length > 0 ? p.items[0].medicationName : '—'}
+                                            {p.notes ? ` — ${p.notes}` : ''}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div className="flex-shrink-0 ml-4">
+                                      <EnhancedButton size="sm" onClick={() => setActiveSection('prescriptions')}>
+                                        View Prescriptions
+                                      </EnhancedButton>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {appointmentPrescriptions.length === 0 && nextAppointment?.status === 'COMPLETED' && (
+                                <div className="mt-3 p-3 bg-muted/5 rounded">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-sm text-muted-foreground">No prescriptions found for this appointment yet.</div>
+                                    <div>
+                                      <EnhancedButton size="sm" onClick={async () => {
+                                        try {
+                                          const list = await prescriptionAPI.getByAppointment(String(nextAppointment.id));
+                                          console.debug('Manual refresh fetched', list?.length);
+                                          setAppointmentPrescriptions(list || []);
+                                          toast({ title: 'Refreshed', description: `Found ${list?.length || 0} prescriptions.` });
+                                        } catch (err) {
+                                          console.error(err);
+                                          toast({ title: 'Error', description: 'Failed to refresh prescriptions', variant: 'destructive' });
+                                        }
+                                      }}>Refresh</EnhancedButton>
+                                    </div>
+                                  </div>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -665,15 +742,7 @@ const PatientDashboard = () => {
               <h1 className="text-2xl font-bold text-foreground mb-2">Prescriptions</h1>
               <p className="text-muted-foreground">View and manage your medications</p>
             </div>
-            <Card className="shadow-card border-border/50 bg-card/80 backdrop-blur-sm">
-              <CardContent className="p-12 text-center">
-                <Pill className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No Active Prescriptions</h3>
-                <p className="text-muted-foreground">
-                  Prescribed medications will be displayed here
-                </p>
-              </CardContent>
-            </Card>
+            <PatientPrescriptions />
           </div>
         )}
 

@@ -55,10 +55,12 @@ export function PatientReviewsTab() {
     try {
       const appointments = await appointmentsAPI.getPatientAppointments(patientProfile.id);
       
-      // Filter completed appointments
+      // Filter completed appointments or appointments that have finished
       const completed = appointments.filter(apt => {
         const appointmentDateTime = new Date(`${apt.date}T${apt.timeTo}`);
-        return apt.status === 'APPROVED' && appointmentDateTime < new Date();
+        // An appointment is reviewable if the doctor marked it COMPLETED, or
+        // it was APPROVED and the end time is in the past.
+        return apt.status === 'COMPLETED' || (apt.status === 'APPROVED' && appointmentDateTime < new Date());
       });
 
       setCompletedAppointments(completed);
