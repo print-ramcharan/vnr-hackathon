@@ -204,11 +204,11 @@ export const DoctorEmergencyDashboard = () => {
   return (
     <div className="space-y-6">
       {/* Availability Toggle */}
-      <Card className="border-l-4 border-l-blue-500">
+      <Card className="border-l-4 border-l-green-500">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-blue-500" />
+              <AlertTriangle className="w-5 h-5 text-green-500" />
               <span>Emergency Availability</span>
             </div>
             <Badge className={isAvailable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
@@ -239,7 +239,7 @@ export const DoctorEmergencyDashboard = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Users className="w-5 h-5 text-red-500" />
+            <Users className="w-5 h-5 text-green-500" />
             <span>Pending Emergency Requests</span>
             <Badge variant="outline">{pendingRequests.length}</Badge>
           </CardTitle>
