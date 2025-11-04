@@ -1,0 +1,5 @@
+# Copy this file to local.properties at the project root (MedVault-MobileApp/local.properties)
+# and set DEV_HOST_IP to your development machine IP reachable from your phone.
+# Example:
+# DEV_HOST_IP=10.100.27.122
+DEV_HOST_IP=10.100.27.122

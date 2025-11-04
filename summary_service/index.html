@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Summarizer Dashboard</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(120deg, #f9a826, #ff6b6b);
+      min-height: 100vh;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      color: #333;
+    }
+    h1 {
+      margin-top: 40px;
+      color: white;
+      text-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+    }
+    form {
+      background: #fff;
+      padding: 25px;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      margin-top: 20px;
+      width: 90%;
+      max-width: 480px;
+      text-align: center;
+    }
+    input[type="file"] {
+      margin: 15px 0;
+      width: 100%;
+    }
+    select, button {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    select {
+      background: #f0f0f0;
+    }
+    button {
+      background: linear-gradient(90deg, #ff6b6b, #f9a826);
+      color: white;
+      transition: all 0.3s;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    .output {
+      margin-top: 30px;
+      width: 90%;
+      max-width: 600px;
+    }
+    .file-summary {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+      margin-bottom: 20px;
+    }
+    .file-summary h3 {
+      margin: 0 0 10px;
+      color: #444;
+    }
+    .preview {
+      max-width: 150px;
+      margin: 10px 0;
+      border-radius: 8px;
+    }
+    .loader {
+      width: 30px;
+      height: 30px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #ff6b6b;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-top: 8px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <h1>Medical Summarizer Dashboard</h1>
+
+  <form id="uploadForm">
+    <label><strong>Select Endpoint:</strong></label>
+    <select id="endpointSelect">
+      <option value="extract_medicines">Extract Medicines</option>
+      <option value="summarize">Summarize One File</option>
+      <option value="summarize_all">Summarize Multiple Files</option>
+    </select>
+
+    <input 
+      type="file" 
+      id="fileInput" 
+      name="files" 
+      multiple 
+      accept=".txt,.pdf,.docx,.png,.jpg,.jpeg"
+      required 
+    />
+    <button type="submit">Upload & Run</button>
+  </form>
+
+  <div class="output" id="output" style="display:none;">
+    <h2 style="color:white;">Results</h2>
+    <div id="summaries"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const output = document.getElementById('output');
+    const summaries = document.getElementById('summaries');
+    const endpointSelect = document.getElementById('endpointSelect');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const files = document.getElementById('fileInput').files;
+      if (files.length === 0) return alert("Please select files first!");
+
+      summaries.innerHTML = "";
+      output.style.display = 'block';
+
+      const endpoint = endpointSelect.value;
+      const url = `http://127.0.0.1:8001/${endpoint}/`;
+
+      // --- Handle summarize_all (multiple files) ---
+      if (endpoint === "summarize_all") {
+        const formData = new FormData();
+        for (const file of files) formData.append('files', file);
+
+        const container = document.createElement('div');
+        container.classList.add('file-summary');
+        container.innerHTML = `<h3>Combining All Files...</h3><p><span class="loader"></span> Processing...</p>`;
+        summaries.appendChild(container);
+
+        try {
+          const res = await fetch(url, { method: 'POST', body: formData });
+          const data = await res.json();
+
+          container.innerHTML = `
+            <h3>🧾 Combined Summary</h3>
+            <p>${(data.summary || "No summary").replace(/\n/g, "<br>")}</p>
+          `;
+
+          if (data.all_summaries) {
+            data.all_summaries.forEach((s, i) => {
+              const ind = document.createElement('div');
+              ind.classList.add('file-summary');
+              ind.innerHTML = `<h3>File ${i + 1}</h3><p>${s.replace(/\n/g, "<br>")}</p>`;
+              summaries.appendChild(ind);
+            });
+          }
+        } catch {
+          container.innerHTML = `<p>❌ Error contacting backend.</p>`;
+        }
+        return;
+      }
+
+      // --- Handle single file summarize/extract ---
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const fileBlock = document.createElement('div');
+        fileBlock.classList.add('file-summary');
+        fileBlock.innerHTML = `
+          <h3>${file.name}</h3>
+          ${file.type.startsWith('image/') ? `<img src="${URL.createObjectURL(file)}" class="preview" />` : ""}
+          <p><span class="loader"></span> Processing...</p>
+        `;
+        summaries.appendChild(fileBlock);
+
+        try {
+          const res = await fetch(url, { method: 'POST', body: formData });
+          const data = await res.json();
+          fileBlock.querySelector('p').innerHTML = 
+            (data.summary || "No summary").replace(/\n/g, "<br>");
+        } catch {
+          fileBlock.querySelector('p').textContent = "❌ Error contacting backend.";
+        }
+      }
+    });
+  </script>
+</body>
+</html>

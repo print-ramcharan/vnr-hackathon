@@ -48,6 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
                         .requestMatchers("/api/profiles/patient/**").permitAll()
                         .requestMatchers("/api/profiles/upload").permitAll()
+                        .requestMatchers("/api/inference/**", "/api/summary/**").permitAll() // allow AI endpoints
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
