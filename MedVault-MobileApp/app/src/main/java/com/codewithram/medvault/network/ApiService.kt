@@ -24,4 +24,10 @@ interface ApiService {
     @Multipart
     @POST("summary/extract_medicines")
     suspend fun extractPrescription(@Part file: MultipartBody.Part): Response<SummaryResponse>
+
+    @Multipart
+    @POST("summary/summarize-all")
+    suspend fun summarizeAll(
+        @Part files: List<MultipartBody.Part>
+    ): Response<SummaryResponse>
 }
